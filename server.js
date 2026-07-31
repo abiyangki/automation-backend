@@ -10,14 +10,18 @@ app.get("/", (req, res) => {
   res.send("Automation Backend is running");
 });
 
-// Example workflow endpoint
-app.post("/invoice", (req, res) => {
-  const data = req.body;
-
-  // Simple example response
+// Invoice workflow endpoint
+app.get("/workflow/invoice", (req, res) => {
   res.json({
-    message: "Invoice generated successfully",
-    input: data
+    status: "success",
+    message: "Invoice workflow endpoint is working",
+    invoice: {
+      id: "INV-001",
+      customer: "Test Customer",
+      amount: 100,
+      currency: "USD",
+      date: new Date().toISOString()
+    }
   });
 });
 
