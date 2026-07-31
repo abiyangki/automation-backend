@@ -4,6 +4,16 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.log("MongoDB error:", err));
 
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.log("MongoDB error:", err));
+
+const mongoose = require("mongoose");
+
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.log("MongoDB error:", err));
+
 const Invoice = mongoose.model("Invoice", {
   customer: String,
   amount: Number,
@@ -59,3 +69,23 @@ const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log("Server running on port " + port);
 });
+
+app.get("/workflow/invoice", async (req, res) => {
+  const invoice = new Invoice({
+    customer: "Test Customer",
+    amount: 100,
+    currency: "USD",
+    date: new Date()
+  });
+
+  await invoice.save();
+
+  res.json({
+    status: "success",
+    message: "Invoice saved to database",
+    invoice
+  });
+});
+
+
+
