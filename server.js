@@ -1,3 +1,33 @@
+const mongoose = require("mongoose");
+
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.log("MongoDB error:", err));
+
+const Invoice = mongoose.model("Invoice", {
+  customer: String,
+  amount: Number,
+  currency: String,
+  date: Date
+});
+
+app.get("/workflow/invoice", async (req, res) => {
+  const invoice = new Invoice({
+    customer: "Test Customer",
+    amount: 100,
+    currency: "USD",
+    date: new Date()
+  });
+
+  await invoice.save();
+
+  res.json({
+    status: "success",
+    message: "Invoice saved to database",
+    invoice
+  });
+});
+
 const express = require("express");
 const cors = require("cors");
 
