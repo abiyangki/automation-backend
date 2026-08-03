@@ -32,3 +32,37 @@ app.get("/workflow/invoice", async (req, res) => {
 
 app.listen(3000, () => console.log("Server running on port 3000"));
 
+
+app.use(express.json());
+
+app.post("/workflow/invoice", async (req, res) => {
+  try {
+    const { customer, amount, currency, date } = req.body;
+
+    const invoice = new Invoice({
+      customer,
+      amount,
+      currency,
+      date: date ? new Date(date) : new Date()
+    });
+
+    await invoice.save();
+
+    res.json({
+      status: "success",
+      message: "Invoice saved to database",
+      invoice
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: "Failed to save invoice",
+      error: err.message
+    });
+  }
+});
+
+
+
+
+
