@@ -1,83 +1,122 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
+const mongoose = require("mongoose");
+
 const app = express();
-
-// FIXES
+app.use(cors());
 app.use(express.json());
-app.use(cors({ origin: "*" })); // Allow frontend
 
-// MongoDB
+// ===== MONGODB =====
 if (process.env.MONGO_URI) {
   mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("MongoDB connected - OBBO Brain DB online"))
-    .catch(err => console.log("MongoDB error:", err.message));
+    .then(() => console.log("✅ MongoDB Connected - OBBO Brain ONLINE"))
+    .catch(e => console.log("DB Error:", e.message));
 }
 
-// Models
-const Invoice = mongoose.model("Invoice", {
-  customer: String, amount: Number, currency: String, date: Date
-});
+const Invoice = mongoose.model("Invoice", new mongoose.Schema({
+  customer: String,
+  amount: Number,
+  date: { type: Date, default: Date.now }
+}));
 
-const Message = mongoose.model("Message", {
-  user: String, text: String, reply: String, date: { type: Date, default: Date.now }
-});
+const Message = mongoose.model("Message", new mongoose.Schema({
+  user: String,
+  message: String,
+  reply: String,
+  date: { type: Date, default: Date.now }
+}));
 
-// Root
+// ===== HOME =====
 app.get("/", (req, res) => {
-  res.send("OBBO Brain - Pakuwa AI Robot - ONLINE - NPM Render - 60 days to East Africa! 🧠✅");
+  res.json({ 
+    message: "OBBO Brain ONLINE 🤖🌍", 
+    brain: "Pakuwa AI Robot",
+    status: "Africa Automation Engine - Ready",
+    endpoints: ["/api/health", "/api/chat", "/api/dashboard/stats", "/workflow/invoice"]
+  });
 });
 
-// Invoice
-app.get("/workflow/invoice", async (req, res) => {
-  try {
-    if (!process.env.MONGO_URI) return res.json({ status: "no_db" });
-    const invoice = new Invoice({ customer: "Test Customer", amount: 100, currency: "USD", date: new Date() });
-    await invoice.save();
-    res.json({ status: "success", invoice });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+// ===== HEALTH =====
+app.get("/api/health", (req, res) => {
+  res.json({ 
+    status: "ONLINE", 
+    db: mongoose.connection.readyState === 1 ? "Connected" : "Not Connected",
+    brain: "OBBO Pakuwa",
+    launch: "60 days"
+  });
 });
 
-// Meter Webhook
-app.post("/webhook/meter", (req, res) => {
-  console.log("Meter:", req.body);
-  res.json({ status: "OBBO Brain received meter", data: req.body });
-});
-
-// ===== NEW: OBBO CHAT BRAIN =====
+// ===== CHAT =====
 app.post("/api/chat", async (req, res) => {
-  const { message, text, user } = req.body;
-  const userMsg = message || text || "Salam";
+  const { message, user } = req.body;
+  let reply = `Salam ${user || 'Omera'}! I am OBBO - Pakuwa AI Robot 🤖\n\n`;
   
-  console.log(`OBBO Chat from ${user || 'Omera'}: ${userMsg}`);
-  
-  // Simple OBBO Brain Logic - Replace with OpenAI later if you want
-  let reply = "";
-  const lower = userMsg.toLowerCase();
-  
-  if (lower.includes("salam") || lower.includes("hello") || lower.includes("hi")) {
-    reply = "Wa Aleikum Salam Omera! 🌍 I am OBBO - Pakuwa AI Robot - ONLINE! How can I help you today? 60 days to East Africa launch!";
-  } else if (lower.includes("invoice")) {
-    reply = "I can handle invoices! Use /workflow/invoice endpoint or tell me customer details and I will create it for you.";
-  } else if (lower.includes("meter") || lower.includes("africa")) {
-    reply = "Africa Automation Engine is ACTIVE! Meter webhook is at /webhook/meter - Ready for East Africa!";
-  } else if (lower.includes("who are you") || lower.includes("obbo")) {
-    reply = "I am OBBO - Pakuwa AI Robot, built by Omera! My brain is hosted on Render, memory on MongoDB Atlas, mission: automate Africa in 60 days! 🚀";
+  if (!message) reply += "How can I help?";
+  else if (message.toLowerCase().includes("obbo wu cho") || message.toLowerCase().includes("who are you")) {
+    reply += "I am OBBO - Pakuwa AI Robot, built by Omera! My brain is hosted on Render, memory on MongoDB Atlas, mission: automate Africa in 60 days! 🚀";
   } else {
-    reply = `OBBO Brain received: "${userMsg}" — I am online and learning! Tell me how I can help with Africa Automation?`;
+    reply += `You said: "${message}"\n\n✅ Brain: ONLINE\n✅ DB: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Offline'}\n\nReady for East Africa launch!`;
   }
-  
-  // Save to DB if available
+
   if (process.env.MONGO_URI) {
-    try { await new Message({ user: user || "Omera", text: userMsg, reply }).save(); } catch(e){}
+    try { await Message.create({ user: user||"anon", message, reply }); } catch(e){}
   }
-  
-  res.json({ reply, response: reply, status: "success" });
+
+  res.json({ reply });
 });
 
-// Health
-app.get("/api/health", (req, res) => res.json({ status: "ONLINE", brain: "Pakuwa AI Robot", days: 60 }));
+// ===== INVOICE WORKFLOW =====
+app.post("/workflow/invoice", async (req, res) => {
+  try {
+    const { customer, amount } = req.body;
+    if (!process.env.MONGO_URI) return res.json({ success: false, error: "No DB" });
+    const inv = await Invoice.create({ customer, amount });
+    res.json({ success: true, invoice: inv });
+  } catch(e){ res.json({ success:false, error:e.message }); }
+});
 
+// ===== METER WEBHOOK =====
+app.post("/webhook/meter", async (req, res) => {
+  console.log("Meter data:", req.body);
+  res.json({ success: true, received: req.body });
+});
+
+// ===== DASHBOARD API - NEW! =====
+app.get("/api/dashboard/stats", async (req, res) => {
+  try {
+    const invoiceCount = process.env.MONGO_URI ? await Invoice.countDocuments() : 0;
+    const messageCount = process.env.MONGO_URI ? await Message.countDocuments() : 0;
+    const recentInvoices = process.env.MONGO_URI ? await Invoice.find().sort({date:-1}).limit(5) : [];
+    
+    res.json({
+      brain: "ONLINE",
+      db: mongoose.connection.readyState === 1 ? "Connected" : "No DB",
+      invoices: invoiceCount,
+      chats: messageCount,
+      uptime: Math.floor(process.uptime()),
+      launchDays: 60,
+      meters: { active: 12, total: 20, regions: ["Kenya", "Tanzania", "Uganda", "Rwanda"] },
+      recentInvoices
+    });
+  } catch(e){ res.json({ error: e.message }); }
+});
+
+app.get("/api/invoices", async (req, res) => {
+  try {
+    if (!process.env.MONGO_URI) return res.json([]);
+    const invoices = await Invoice.find().sort({date:-1});
+    res.json(invoices);
+  } catch(e){ res.json([]); }
+});
+
+// ===== CHAT HISTORY =====
+app.get("/api/chats", async (req, res) => {
+  if (!process.env.MONGO_URI) return res.json([]);
+  const chats = await Message.find().sort({date:-1}).limit(20);
+  res.json(chats);
+});
+
+// ===== LAST LINE - MUST BE LAST! =====
 app.listen(process.env.PORT || 10000, "0.0.0.0", () => {
-  console.log("OBBO Brain running on", process.env.PORT || 10000);
+  console.log("🤖 OBBO Brain ONLINE on Render - Africa Automation Engine Ready! 🌍");
 });
