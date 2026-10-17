@@ -1,19 +1,16 @@
-ops-dashboard/   <- ROOT (you are here)
-├── server.js        <- your new server.js is here
-├── package.json     <- REPLACE HERE! (delete old, paste new)
-├── lib/
-│   └── security.js
-├── db/
-│   └── (database files)
-├── public/
-│   └── (dashboard html/css)
-└── package-lock.json  <- DELETE this file!ops-dashboard/   <- ROOT (you are here)
-├── server.js        <- your new server.js is here
-├── package.json     <- REPLACE HERE! (delete old, paste new)
-├── lib/
-│   └── security.js
-├── db/
-│   └── (database files)
-├── public/
-│   └── (dashboard html/css)
-└── package-lock.json  <- DELETE this file!
+{
+  "name": "ops-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  }
+}
