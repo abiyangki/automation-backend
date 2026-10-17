@@ -1,14 +1,19 @@
-{
-  "name": "automation-backend",
-  "version": "1.0.0",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "mongoose": "^8.0.0",
-    "cors": "^2.8.5"
-  }
-}
-
+ops-dashboard/   <- ROOT (you are here)
+├── server.js        <- your new server.js is here
+├── package.json     <- REPLACE HERE! (delete old, paste new)
+├── lib/
+│   └── security.js
+├── db/
+│   └── (database files)
+├── public/
+│   └── (dashboard html/css)
+└── package-lock.json  <- DELETE this file!ops-dashboard/   <- ROOT (you are here)
+├── server.js        <- your new server.js is here
+├── package.json     <- REPLACE HERE! (delete old, paste new)
+├── lib/
+│   └── security.js
+├── db/
+│   └── (database files)
+├── public/
+│   └── (dashboard html/css)
+└── package-lock.json  <- DELETE this file!
