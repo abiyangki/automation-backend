@@ -1,122 +1,75 @@
-const express = require("express");
-const cors = require("cors");
-const mongoose = require("mongoose");
-
+const express = require('express');
+const crypto = require('crypto');
 const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = process.env.PORT || 10000;
 
-// ===== MONGODB =====
-if (process.env.MONGO_URI) {
-  mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ MongoDB Connected - OBBO Brain ONLINE"))
-    .catch(e => console.log("DB Error:", e.message));
+// Credentials come ONLY from Render env vars. No defaults in code: refuse to start without them.
+const OPS_USER = process.env.OPS_USER;
+const OPS_PASS = process.env.OPS_PASS;
+const N8N_URL = (process.env.N8N_URL || '').replace(/\/+$/, '');
+const N8N_API_KEY = process.env.N8N_API_KEY;
+if (!OPS_USER || !OPS_PASS || !N8N_URL || !N8N_API_KEY) {
+  console.error('Set OPS_USER, OPS_PASS, N8N_URL and N8N_API_KEY in Render > Environment');
+  process.exit(1);
 }
 
-const Invoice = mongoose.model("Invoice", new mongoose.Schema({
-  customer: String,
-  amount: Number,
-  date: { type: Date, default: Date.now }
-}));
+// Constant-time compare so the password can't be guessed by timing responses.
+const same = (a, b) => crypto.timingSafeEqual(
+  crypto.createHash('sha256').update(String(a)).digest(),
+  crypto.createHash('sha256').update(String(b)).digest());
 
-const Message = mongoose.model("Message", new mongoose.Schema({
-  user: String,
-  message: String,
-  reply: String,
-  date: { type: Date, default: Date.now }
-}));
+function auth(req, res, next) {
+  const b64 = (req.headers.authorization || '').split(' ')[1] || '';
+  const decoded = Buffer.from(b64, 'base64').toString();
+  const i = decoded.indexOf(':');                       // passwords may contain ':'
+  const u = decoded.slice(0, i), p = decoded.slice(i + 1);
+  if (i > 0 && same(u, OPS_USER) && same(p, OPS_PASS)) return next();
+  res.set('WWW-Authenticate', 'Basic realm="OBBO Ops"').status(401).send('Login required');
+}
 
-// ===== HOME =====
-app.get("/", (req, res) => {
-  res.json({ 
-    message: "OBBO Brain ONLINE 🤖🌍", 
-    brain: "Pakuwa AI Robot",
-    status: "Africa Automation Engine - Ready",
-    endpoints: ["/api/health", "/api/chat", "/api/dashboard/stats", "/workflow/invoice"]
+async function n8n(path) {
+  const r = await fetch(`${N8N_URL}${path}`, {
+    headers: { 'X-N8N-API-KEY': N8N_API_KEY, accept: 'application/json' },
+    signal: AbortSignal.timeout(15000),
   });
-});
+  if (!r.ok) throw new Error(`n8n ${path.split('?')[0]} returned HTTP ${r.status}`);
+  return r.json();
+}
 
-// ===== HEALTH =====
-app.get("/api/health", (req, res) => {
-  res.json({ 
-    status: "ONLINE", 
-    db: mongoose.connection.readyState === 1 ? "Connected" : "Not Connected",
-    brain: "OBBO Pakuwa",
-    launch: "60 days"
-  });
-});
-
-// ===== CHAT =====
-app.post("/api/chat", async (req, res) => {
-  const { message, user } = req.body;
-  let reply = `Salam ${user || 'Omera'}! I am OBBO - Pakuwa AI Robot 🤖\n\n`;
-  
-  if (!message) reply += "How can I help?";
-  else if (message.toLowerCase().includes("obbo wu cho") || message.toLowerCase().includes("who are you")) {
-    reply += "I am OBBO - Pakuwa AI Robot, built by Omera! My brain is hosted on Render, memory on MongoDB Atlas, mission: automate Africa in 60 days! 🚀";
-  } else {
-    reply += `You said: "${message}"\n\n✅ Brain: ONLINE\n✅ DB: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Offline'}\n\nReady for East Africa launch!`;
+app.get('/api/ops', auth, async (req, res) => {
+  try {
+    const [execData, wfData] = await Promise.all([
+      n8n('/api/v1/executions?limit=50&includeData=false'),
+      n8n('/api/v1/workflows?limit=250'),
+    ]);
+    const nameMap = Object.fromEntries((wfData.data || []).map(w => [String(w.id), w.name]));
+    res.json((execData.data || []).map(e => ({
+      id: e.id,
+      name: nameMap[String(e.workflowId)] || `Workflow ${e.workflowId}`,
+      status: e.status,
+      startedAt: e.startedAt,
+    })));
+  } catch (err) {
+    console.error(err);                                  // details stay in Render logs
+    res.status(502).json({ error: 'Could not reach n8n. Check N8N_URL and N8N_API_KEY.' });
   }
-
-  if (process.env.MONGO_URI) {
-    try { await Message.create({ user: user||"anon", message, reply }); } catch(e){}
-  }
-
-  res.json({ reply });
 });
 
-// ===== INVOICE WORKFLOW =====
-app.post("/workflow/invoice", async (req, res) => {
-  try {
-    const { customer, amount } = req.body;
-    if (!process.env.MONGO_URI) return res.json({ success: false, error: "No DB" });
-    const inv = await Invoice.create({ customer, amount });
-    res.json({ success: true, invoice: inv });
-  } catch(e){ res.json({ success:false, error:e.message }); }
+// No credentials in the page: the browser re-sends Basic auth to /api/ops by itself.
+app.get('/', auth, (req, res) => {
+  res.set('Cache-Control', 'no-store').send(`<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OBBO Ops</title><h1>OBBO Ops</h1><div id="list">Loading...</div>
+<script>
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  fetch('/api/ops').then(r => r.json()).then(d => {
+    const el = document.getElementById('list');
+    if (d.error) { el.innerText = d.error; return; }
+    el.innerHTML = d.length ? d.map(e =>
+      '<p>' + esc(e.name) + ' - ' + esc(e.status) + ' - ' + esc(new Date(e.startedAt).toLocaleString()) + '</p>').join('')
+      : 'No executions yet';
+  }).catch(() => document.getElementById('list').innerText = 'Failed to load');
+</script>`);
 });
 
-// ===== METER WEBHOOK =====
-app.post("/webhook/meter", async (req, res) => {
-  console.log("Meter data:", req.body);
-  res.json({ success: true, received: req.body });
-});
-
-// ===== DASHBOARD API - NEW! =====
-app.get("/api/dashboard/stats", async (req, res) => {
-  try {
-    const invoiceCount = process.env.MONGO_URI ? await Invoice.countDocuments() : 0;
-    const messageCount = process.env.MONGO_URI ? await Message.countDocuments() : 0;
-    const recentInvoices = process.env.MONGO_URI ? await Invoice.find().sort({date:-1}).limit(5) : [];
-    
-    res.json({
-      brain: "ONLINE",
-      db: mongoose.connection.readyState === 1 ? "Connected" : "No DB",
-      invoices: invoiceCount,
-      chats: messageCount,
-      uptime: Math.floor(process.uptime()),
-      launchDays: 60,
-      meters: { active: 12, total: 20, regions: ["Kenya", "Tanzania", "Uganda", "Rwanda"] },
-      recentInvoices
-    });
-  } catch(e){ res.json({ error: e.message }); }
-});
-
-app.get("/api/invoices", async (req, res) => {
-  try {
-    if (!process.env.MONGO_URI) return res.json([]);
-    const invoices = await Invoice.find().sort({date:-1});
-    res.json(invoices);
-  } catch(e){ res.json([]); }
-});
-
-// ===== CHAT HISTORY =====
-app.get("/api/chats", async (req, res) => {
-  if (!process.env.MONGO_URI) return res.json([]);
-  const chats = await Message.find().sort({date:-1}).limit(20);
-  res.json(chats);
-});
-
-// ===== LAST LINE - MUST BE LAST! =====
-app.listen(process.env.PORT || 10000, "0.0.0.0", () => {
-  console.log("🤖 OBBO Brain ONLINE on Render - Africa Automation Engine Ready! 🌍");
-});
+app.listen(PORT, () => console.log('OBBO Ops live on ' + PORT));
