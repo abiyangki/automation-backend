@@ -286,7 +286,13 @@ app.use((err, req, res, next) => {
 
 // ---------- boot ----------
 (async () => {
-  await pool.query(fs.readFileSync(path.join(__dirname, 'db/schema.sql'), 'utf8'));
+  let schema = '';
+try {
+  schema = fs.readFileSync(path.join(__dirname, 'db', 'schema.sql'), 'utf8');
+} catch (e) {
+  console.log('schema.sql not found, skipping DB init');
+  schema = '';
+}
   app.listen(PORT, () => console.log(`Dashboard on :${PORT}`));
   const tick = () => syncAll(pool).then(r => r.length && console.log('sync', JSON.stringify(r))).catch(e => console.error('sync failed', e.message));
   setTimeout(tick, 5e3);
