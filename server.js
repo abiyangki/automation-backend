@@ -2,7 +2,9 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
-const sec = require('./lib/security');
+const n8nMod = require('./lib/n8n-sync');
+const syncAll = n8nMod.syncAll || n8nMod;
+const CATEGORIES = n8nMod.CATEGORIES || ['workflow','integration','operations','commerce','voice'];
 const { syncAll, CATEGORIES } = require('./lib/n8n-sync');
 
 const { PORT = 3000, DATABASE_URL, DASHBOARD_SECRET, ADMIN_PASSWORD, NODE_ENV } = process.env;
@@ -294,7 +296,10 @@ try {
   schema = '';
 }
   app.listen(PORT, () => console.log(`Dashboard on :${PORT}`));
-  const tick = () => syncAll(pool).then(r => r.length && console.log('sync', JSON.stringify(r))).catch(e => console.error('sync failed', e.message));
+  const tick = () => {
+    if (typeof syncAll !== 'function') { console.log('syncAll not available, skipping sync'); return Promise.resolve([]); }
+    return syncAll(pool).then(r => r.length && console.log('sync', JSON.stringify(r))).catch(e => console.error('sync failed', e.message));
+  };
   setTimeout(tick, 5e3);
   setInterval(tick, SYNC_MIN * 60e3);
 })().catch(e => { console.error(e); process.exit(1); });
