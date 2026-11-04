@@ -287,14 +287,18 @@ app.use((err, req, res, next) => {
 });
 
 // ---------- boot ----------
+
+// ---------- boot ----------
 (async () => {
-  let schema = '';
-try {
-  schema = fs.readFileSync(path.join(__dirname, 'db', 'schema.sql'), 'utf8');
-} catch (e) {
-  console.log('schema.sql not found, skipping DB init');
-  schema = '';
-}
+  try {
+    const schema = fs.readFileSync(path.join(__dirname, 'db', 'schema.sql'), 'utf8');
+    if (schema.trim()) {
+      await pool.query(schema);
+      console.log('DB schema applied');
+    }
+  } catch (e) {
+    console.log('schema init skipped:', e.message);
+  }
   app.listen(PORT, () => console.log(`Dashboard on :${PORT}`));
   const tick = () => {
     if (typeof syncAll !== 'function') { console.log('syncAll not available, skipping sync'); return Promise.resolve([]); }
