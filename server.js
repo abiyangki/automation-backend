@@ -276,10 +276,13 @@ app.post('/api/sync', auth, adminOnly, async (req, res, next) => {
 });
 
 // ---------- static + health ----------
+const app = express();
+
 app.get('/healthz', async (req, res) => {
   try { await pool.query('SELECT 1'); res.json({ ok: true }); } catch { res.status(503).json({ ok: false }); }
 });
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'], maxAge: PROD ? '1h' : 0 }));
+app.get('/health', (req, res) => res.status(200).send('OK'));
 
 app.use((err, req, res, next) => {
   console.error(err);
