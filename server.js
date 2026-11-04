@@ -276,7 +276,7 @@ app.post('/api/sync', auth, adminOnly, async (req, res, next) => {
 });
 
 // ---------- static + health ----------
-const app = express();
+
 
 app.get('/healthz', async (req, res) => {
   try { await pool.query('SELECT 1'); res.json({ ok: true }); } catch { res.status(503).json({ ok: false }); }
