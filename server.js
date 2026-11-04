@@ -2,10 +2,10 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
+const sec = require('./lib/security');
 const n8nMod = require('./lib/n8n-sync');
 const syncAll = n8nMod.syncAll || n8nMod;
 const CATEGORIES = n8nMod.CATEGORIES || ['workflow','integration','operations','commerce','voice'];
-const { syncAll, CATEGORIES } = require('./lib/n8n-sync');
 
 const { PORT = 3000, DATABASE_URL, DASHBOARD_SECRET, ADMIN_PASSWORD, NODE_ENV } = process.env;
 if (!DATABASE_URL || !DASHBOARD_SECRET || !ADMIN_PASSWORD) {
