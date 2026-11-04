@@ -299,7 +299,7 @@ app.use((err, req, res, next) => {
   } catch (e) {
     console.log('schema init skipped:', e.message);
   }
-  app.listen(PORT, () => console.log(`Dashboard on :${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`Dashboard on :${PORT}`));
   const tick = () => {
     if (typeof syncAll !== 'function') { console.log('syncAll not available, skipping sync'); return Promise.resolve([]); }
     return syncAll(pool).then(r => r.length && console.log('sync', JSON.stringify(r))).catch(e => console.error('sync failed', e.message));
